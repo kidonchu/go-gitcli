@@ -48,32 +48,6 @@ func CmdDeleteStory(c *cli.Context) {
 		log.Fatal(err)
 		return
 	}
-	if len(branches) < 1 {
-		fmt.Println("No branch to delete")
-		// we don't want to return here because there can be databases that don't have branches for it
-	} else {
-		// Show list of branches to be deleted and get confirmation
-		fmt.Println("Following branches will be deleted")
-		for _, b := range branches {
-			name, _ := b.Name()
-			fmt.Printf("* %s\n", name)
-		}
-		answer := util.GetUserInput("Continue? (nY): ")
-		if answer == "Y" {
-			remote, err := gitutil.FindRemote(repo, "origin")
-			if err != nil {
-				log.Fatal(err)
-				return
-			}
-
-			err = gitutil.DeleteBranches(repo, remote, branches)
-			if err != nil {
-				log.Fatal(err)
-				return
-			}
-			fmt.Println("Successfully deleted branch(es)")
-		}
-	}
 
 	// Now handle databases
 	var (
@@ -96,23 +70,48 @@ func CmdDeleteStory(c *cli.Context) {
 		log.Fatal(err)
 		return
 	}
-	if len(dbs) < 1 {
-		fmt.Println("No database to delete")
+
+	if len(branches) < 1 && len(dbs) < 1 {
+		fmt.Println("Nothing to delete")
 		return
 	}
 
-	// Show list of dbs to be deleted and get confirmation
-	fmt.Println("Following databases will be deleted")
-	for _, database := range dbs {
-		fmt.Printf("* %s\n", database)
+	// Show list of branches and databases to be deleted and get confirmation
+	if len(branches) > 0 {
+		fmt.Println("Following branches will be deleted")
+		for _, b := range branches {
+			name, _ := b.Name()
+			fmt.Printf("* %s\n", name)
+		}
+		fmt.Println("")
 	}
+	if len(dbs) > 0 {
+		fmt.Println("Following databases will be deleted")
+		for _, database := range dbs {
+			fmt.Printf("* %s\n", database)
+		}
+		fmt.Println("")
+	}
+
+	// If confirmed, delete branches and databases
 	answer := util.GetUserInput("Continue? (nY): ")
 	if answer == "Y" {
+		remote, err := gitutil.FindRemote(repo, "origin")
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+		err = gitutil.DeleteBranches(repo, remote, branches)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
 		err = dbutil.Drop(dbh, dbs)
 		if err != nil {
 			log.Fatal(err)
 			return
 		}
 	}
-	fmt.Println("All Done")
 }
