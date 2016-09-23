@@ -3,7 +3,9 @@ package command
 import "github.com/codegangsta/cli"
 
 func CmdNew(c *cli.Context) {
-	// config := getGitconfig()
+
+	// branch := c.String("branch")
+	// source := c.String("source")
 
 	// repoRoots := []string{
 	// 	"acroots.ember",

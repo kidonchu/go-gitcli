@@ -8,31 +8,18 @@ import (
 	_ "github.com/go-sql-driver/mysql" // mysql driver
 	"github.com/kidonchu/gitcli/dbutil"
 	"github.com/kidonchu/gitcli/gitutil"
-	"github.com/kidonchu/gitcli/util"
 	"github.com/libgit2/git2go"
 )
 
-var (
-	branches []*git.Branch
-	remotes  []*git.Remote
-)
-
 // CmdDeleteStory deletes story
-// First, it deletes local and remote branchs whose name matches with the ticket number
-// Then, it deletes the databases whose name matches with the ticket number
+// First, it deletes local and remote branchs whose name matches with the `pattern`
+// Then, it deletes the databases whose name matches with the `pattern`
 func CmdDeleteStory(c *cli.Context) {
-	// Get ticket number to delete
-	ticket := c.String("ticket")
 
-	// Prepare gitconfig
-	config, err := gitutil.GetGitconfig()
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
+	pattern := c.String("pattern")
 
 	// Get repo instance
-	root, err := config.LookupString("story.acroot.ember")
+	root, err := gitutil.ConfigString("story.acroot.ember")
 	if err != nil {
 		log.Fatal(err)
 		return
@@ -43,7 +30,7 @@ func CmdDeleteStory(c *cli.Context) {
 		return
 	}
 
-	branches, err := gitutil.FindBranches(repo, "^.*"+ticket+".*$", git.BranchLocal)
+	branches, err := gitutil.FindBranches(repo, "^.*"+pattern+".*$", git.BranchLocal)
 	if err != nil {
 		log.Fatal(err)
 		return
@@ -51,10 +38,10 @@ func CmdDeleteStory(c *cli.Context) {
 
 	// Now handle databases
 	var (
-		host, _ = config.LookupString("story.hosteddb.host")
-		port, _ = config.LookupInt32("story.hosteddb.port")
-		user, _ = config.LookupString("story.hosteddb.user")
-		pass, _ = config.LookupString("story.hosteddb.pass")
+		host, _ = gitutil.ConfigString("story.hosteddb.host")
+		port, _ = gitutil.ConfigInt32("story.hosteddb.port")
+		user, _ = gitutil.ConfigString("story.hosteddb.user")
+		pass, _ = gitutil.ConfigString("story.hosteddb.pass")
 	)
 
 	dbh, err := dbutil.Connect(host, port, user, pass)
@@ -65,7 +52,7 @@ func CmdDeleteStory(c *cli.Context) {
 	defer dbh.Close()
 
 	// find list of dbs to delete
-	dbs, err := dbutil.FindDbs(dbh, "^.*"+ticket+".*$")
+	dbs, err := dbutil.FindDbs(dbh, "^.*"+pattern+".*$")
 	if err != nil {
 		log.Fatal(err)
 		return
@@ -94,7 +81,7 @@ func CmdDeleteStory(c *cli.Context) {
 	}
 
 	// If confirmed, delete branches and databases
-	answer := util.GetUserInput("Continue? (nY): ")
+	answer := GetUserInput("Continue? (nY): ")
 	if answer == "Y" {
 		remote, err := gitutil.FindRemote(repo, "origin")
 		if err != nil {

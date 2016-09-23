@@ -163,21 +163,6 @@ func FindRemote(repo *git.Repository, name string) (*git.Remote, error) {
 	return remote, nil
 }
 
-// GetGitconfig returns git config object
-func GetGitconfig() (*git.Config, error) {
-	configPath, err := git.ConfigFindGlobal()
-	if err != nil {
-		return nil, fmt.Errorf("Global .gitconfig could not be found\n%+v\n", err)
-	}
-
-	config, err := git.OpenOndisk(nil, configPath)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to open `%s`\n%+v\n", configPath, err)
-	}
-
-	return config, nil
-}
-
 // func getRemote(repo *git.Repository, remoteName string) (*git.Remote, error) {
 
 // 	// First, look at cached branch instances

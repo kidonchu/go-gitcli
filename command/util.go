@@ -1,10 +1,17 @@
-package util
+package command
 
 import (
 	"bufio"
 	"fmt"
 	"os"
 	"strings"
+
+	git "github.com/libgit2/git2go"
+)
+
+var (
+	branches []*git.Branch
+	remotes  []*git.Remote
 )
 
 // GetUserInput gets user input from stdin
