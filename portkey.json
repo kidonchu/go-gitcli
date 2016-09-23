@@ -1,0 +1,14 @@
+{
+	"*.go": {
+		"type": "source",
+		"related": [
+			"%s_test.go"
+		]
+	},
+	"*_test.go": {
+		"type": "test",
+		"related": [
+			"%s.go"
+		]
+	}
+}
