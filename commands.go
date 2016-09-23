@@ -21,9 +21,9 @@ var GlobalFlags = []cli.Flag{
 		Usage: "source `BRANCH` name",
 	},
 	cli.StringFlag{
-		Name:  "t,ticket",
+		Name:  "p,pattern",
 		Value: "",
-		Usage: "`TICKET#`",
+		Usage: "Perl/Python compatible regex `PATTERN` for finding branches and databases",
 	},
 }
 
