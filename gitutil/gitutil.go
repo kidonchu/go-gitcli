@@ -3,10 +3,8 @@ package gitutil
 import (
 	"fmt"
 	"log"
-	"os"
-	"os/exec"
-	"path"
 	"regexp"
+	"time"
 
 	git "github.com/libgit2/git2go"
 )
@@ -204,7 +202,9 @@ func SetUpstream(repo *git.Repository, remoteName string, branchName string) err
 }
 
 // Push pushes given ref to remote repo
-func Push(repo *git.Repository, remote *git.Remote, ref string) error {
+func Push(repo *git.Repository, remote *git.Remote, branchName string) error {
+
+	ref := "refs/heads/" + branchName
 
 	// execute push
 	err := remote.Push([]string{ref}, &git.PushOptions{
@@ -220,64 +220,155 @@ func Push(repo *git.Repository, remote *git.Remote, ref string) error {
 	return nil
 }
 
-// StashChanges stashes changes
-func StashChanges(repo *git.Repository) {
+// Stash stashes changes
+func Stash(repo *git.Repository) error {
+
+	var name, email string
+	name, email, err := gitUser()
+	if err != nil {
+		log.Fatal(err)
+		// Use default signature if not found
+		name = "Kidon Chu"
+		email = "kidonchu@gmail.com"
+	}
+
+	sig := &git.Signature{
+		Name:  name,
+		Email: email,
+		When:  time.Now(),
+	}
+
+	branchName, err := currentBranchName(repo)
+	if err != nil {
+		return err
+	}
 
 	// check if there are any changes to be stashed
 	opts := &git.StatusOptions{}
 	opts.Flags = git.StatusOptIncludeUntracked
 	statusList, err := repo.StatusList(opts)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("Could not obtain status list: %+v", err)
 	}
 	entryCount, err := statusList.EntryCount()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	// if there is any change to the current branch, stash theme
 	if entryCount > 0 {
 
-		// store current working directory to come back later
-		origWd, err := os.Getwd()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		// go to repo dir
-		repoPath := path.Dir(path.Dir(repo.Path()))
-		err = os.Chdir(repoPath)
-		if err != nil {
-			log.Fatal(err)
-		}
-
 		// add every changes and new files into index
 		index, err := repo.Index()
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		err = index.AddAll([]string{}, git.IndexAddDefault, nil)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		_, err = index.WriteTree()
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
 		err = index.Write()
 		if err != nil {
 			log.Fatal(err)
+			return err
 		}
 
-		// run actual stash command
-		cmd := exec.Command("git", "stash")
-		out, err := cmd.Output()
+		_, err = repo.Stashes.Save(
+			sig,
+			fmt.Sprintf("WIP on %s", branchName),
+			git.StashDefault,
+		)
 		if err != nil {
 			log.Fatal(err)
-		}
-		log.Printf("%s\n", out)
-
-		// return to original working directory
-		err = os.Chdir(origWd)
-		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 	}
+
+	return nil
+}
+
+func gitUser() (string, string, error) {
+	name, err := ConfigString("user.name")
+	if err != nil {
+		return "", "", err
+	}
+
+	email, err := ConfigString("user.email")
+	if err != nil {
+		return "", "", err
+	}
+
+	return name, email, nil
+}
+
+func currentBranchName(repo *git.Repository) (string, error) {
+	currentBranch, err := repo.Head()
+	if err != nil {
+		return "", err
+	}
+
+	return currentBranch.Name(), nil
+}
+
+func LookupBranchSource(from string) (string, error) {
+
+	// default source: contact-deal
+	if from == "" {
+		from = "contact"
+	}
+
+	source, err := config.LookupString("story.source." + from)
+	if err != nil {
+		return "", fmt.Errorf("Unable to find source for %s", from)
+	}
+
+	return source, nil
+}
+
+func CreateBranch(repo *git.Repository, branch string, source string) (*git.Branch, error) {
+
+	var newBranch *git.Branch
+	var err error
+
+	newBranch, err = repo.LookupBranch(branch, git.BranchLocal)
+	if err != nil {
+		// find source branch to create new branch from
+		sourceBranch, err := repo.LookupBranch(source, git.BranchRemote)
+		if err != nil {
+			return nil, err
+		}
+
+		sourceCommit, err := repo.LookupCommit(sourceBranch.Target())
+		if err != nil {
+			return nil, err
+		}
+
+		newBranch, err = repo.CreateBranch(branch, sourceCommit, false)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Checkout new branch as HEAD
+	_, err = repo.References.Lookup("refs/heads/" + branch)
+	if err != nil {
+		return nil, err
+	}
+	_, err = repo.References.CreateSymbolic("HEAD", "refs/heads/"+branch, true, "headOne")
+	if err != nil {
+		return nil, err
+	}
+	opts := &git.CheckoutOpts{
+		Strategy: git.CheckoutSafe | git.CheckoutRecreateMissing,
+	}
+	if err := repo.CheckoutHead(opts); err != nil {
+		return nil, err
+	}
+
+	return newBranch, nil
 }

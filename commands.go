@@ -33,13 +33,13 @@ var Commands = []cli.Command{
 		Name:  "story",
 		Usage: "story-related tasks",
 		Subcommands: []cli.Command{
-			// {
-			// 	Name:    "new",
-			// 	Aliases: []string{"n"},
-			// 	Usage:   "create a new story",
-			// 	Action:  command.CmdNewStory,
-			// 	Flags:   GlobalFlags,
-			// },
+			{
+				Name:    "new",
+				Aliases: []string{"n"},
+				Usage:   "Create a new story",
+				Action:  command.CmdNewStory,
+				Flags:   GlobalFlags,
+			},
 			{
 				Name:    "delete",
 				Aliases: []string{"d"},
