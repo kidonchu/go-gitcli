@@ -137,8 +137,8 @@ func FindBranch(repo *git.Repository, name string, bt git.BranchType) (*git.Bran
 	return branch, nil
 }
 
-// FindRemote searches the repo for remote with given name and returns remote instance
-func FindRemote(repo *git.Repository, name string) (*git.Remote, error) {
+// GetRemote searches the repo for remote with given name and returns remote instance
+func GetRemote(repo *git.Repository, name string) (*git.Remote, error) {
 
 	// First, look at cached instances
 	if remote := remotes[name]; remote != nil {
@@ -160,21 +160,6 @@ func FindRemote(repo *git.Repository, name string) (*git.Remote, error) {
 
 	return remote, nil
 }
-
-// func getRemote(repo *git.Repository, remoteName string) (*git.Remote, error) {
-
-// 	// First, look at cached branch instances
-// 	if remotes[remoteName] != nil {
-// 		return remotes[remoteName], nil
-// 	}
-
-// 	remote, err := repo.Remotes.Lookup(remoteName)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("Unable to find remote: %s\n%+v\n", remoteName, err)
-// 	}
-
-// 	return remote, nil
-// }
 
 // GetRepo creates a Repository instance
 func GetRepo(repoName string) (*git.Repository, error) {
@@ -269,12 +254,10 @@ func Stash(repo *git.Repository) error {
 		}
 		_, err = index.WriteTree()
 		if err != nil {
-			log.Fatal(err)
 			return err
 		}
 		err = index.Write()
 		if err != nil {
-			log.Fatal(err)
 			return err
 		}
 
@@ -315,6 +298,7 @@ func currentBranchName(repo *git.Repository) (string, error) {
 	return currentBranch.Name(), nil
 }
 
+// LookupBranchSource looks up branch source
 func LookupBranchSource(from string) (string, error) {
 
 	// default source: contact-deal
@@ -322,7 +306,7 @@ func LookupBranchSource(from string) (string, error) {
 		from = "contact"
 	}
 
-	source, err := config.LookupString("story.source." + from)
+	source, err := ConfigString("story.source." + from)
 	if err != nil {
 		return "", fmt.Errorf("Unable to find source for %s", from)
 	}
@@ -330,6 +314,7 @@ func LookupBranchSource(from string) (string, error) {
 	return source, nil
 }
 
+// CreateBranch creates new branch
 func CreateBranch(repo *git.Repository, branch string, source string) (*git.Branch, error) {
 
 	var newBranch *git.Branch
