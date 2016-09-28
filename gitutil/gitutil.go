@@ -187,9 +187,7 @@ func SetUpstream(repo *git.Repository, remoteName string, branchName string) err
 }
 
 // Push pushes given ref to remote repo
-func Push(repo *git.Repository, remote *git.Remote, branchName string) error {
-
-	ref := "refs/heads/" + branchName
+func Push(repo *git.Repository, remote *git.Remote, ref string) error {
 
 	// execute push
 	err := remote.Push([]string{ref}, &git.PushOptions{

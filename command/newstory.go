@@ -70,7 +70,8 @@ func CmdNewStory(c *cli.Context) {
 	}
 
 	fmt.Println("Pushing to remote")
-	err = gitutil.Push(repo, remote, branch)
+	ref := "refs/heads/" + branch
+	err = gitutil.Push(repo, remote, ref)
 	if err != nil {
 		log.Fatal(err)
 		return
