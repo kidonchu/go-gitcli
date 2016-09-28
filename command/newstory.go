@@ -11,28 +11,6 @@ import (
 // CmdNewStory creates new branch for story
 func CmdNewStory(c *cli.Context) {
 
-	// branch := c.String("branch")
-	// source := c.String("source")
-
-	// Get repo instance
-	root, err := gitutil.ConfigString("story.acroot.ember")
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
-	repo, err := gitutil.GetRepo(root)
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
-
-	// Stash all changes for current branch, if any
-	err = gitutil.Stash(repo)
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
-
 	branch := c.String("branch")
 	if branch == "" {
 		fmt.Println("Branch to create is not specified")
@@ -46,6 +24,18 @@ func CmdNewStory(c *cli.Context) {
 		return
 	}
 
+	// Get repo instance
+	root, err := gitutil.ConfigString("story.acroot.ember")
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+	repo, err := gitutil.GetRepo(root)
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+
 	fmt.Printf("* %s => %s\n", source, branch)
 
 	answer := GetUserInput("Proceed with above items? (nY): ")
@@ -53,6 +43,7 @@ func CmdNewStory(c *cli.Context) {
 		return
 	}
 
+	// Stash all changes for current branch, if any
 	fmt.Println("Stashing changes on current branch")
 	err = gitutil.Stash(repo)
 	if err != nil {
@@ -75,7 +66,7 @@ func CmdNewStory(c *cli.Context) {
 	}
 
 	fmt.Println("Finding remote")
-	remote, err := repo.Remotes.Lookup("origin")
+	remote, err := gitutil.GetRemote(repo, "origin")
 	if err != nil {
 		log.Fatalf("Unable to find remote: %+v\n", err)
 		return
