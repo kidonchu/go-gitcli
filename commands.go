@@ -30,8 +30,9 @@ var GlobalFlags = []cli.Flag{
 // Commands specifies available commands
 var Commands = []cli.Command{
 	{
-		Name:  "story",
-		Usage: "story-related tasks",
+		Name:    "story",
+		Usage:   "story-related tasks",
+		Aliases: []string{"s"},
 		Subcommands: []cli.Command{
 			{
 				Name:    "new",
