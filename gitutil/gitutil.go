@@ -261,13 +261,18 @@ func Stash(repo *git.Repository) error {
 			return err
 		}
 
-		_, err = repo.Stashes.Save(
+		oid, err := repo.Stashes.Save(
 			sig,
 			fmt.Sprintf("WIP on %s", branchName),
 			git.StashDefault,
 		)
 		if err != nil {
-			log.Fatal(err)
+			return err
+		}
+
+		// store last stashed commit to config
+		err = SetConfigString(fmt.Sprintf("branch.%s.laststash", branchName), oid.String())
+		if err != nil {
 			return err
 		}
 	}
