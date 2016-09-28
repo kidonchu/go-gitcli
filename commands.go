@@ -48,6 +48,13 @@ var Commands = []cli.Command{
 				Action:  command.CmdDeleteStory,
 				Flags:   GlobalFlags,
 			},
+			{
+				Name:    "switch",
+				Aliases: []string{"s"},
+				Usage:   "Switch to another story",
+				Action:  command.CmdSwitchStory,
+				Flags:   GlobalFlags,
+			},
 		},
 	},
 }
