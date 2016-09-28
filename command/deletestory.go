@@ -83,7 +83,7 @@ func CmdDeleteStory(c *cli.Context) {
 	// If confirmed, delete branches and databases
 	answer := GetUserInput("Continue? (nY): ")
 	if answer == "Y" {
-		remote, err := gitutil.FindRemote(repo, "origin")
+		remote, err := gitutil.GetRemote(repo, "origin")
 		if err != nil {
 			log.Fatal(err)
 			return
