@@ -3,6 +3,7 @@ package command
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/codegangsta/cli"
 	_ "github.com/go-sql-driver/mysql" // mysql driver
@@ -19,11 +20,7 @@ func CmdDeleteStory(c *cli.Context) {
 	pattern := c.String("pattern")
 
 	// Get repo instance
-	root, err := gitutil.ConfigString("story.acroot.ember")
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
+	root, _ := os.Getwd()
 	repo, err := gitutil.GetRepo(root)
 	if err != nil {
 		log.Fatal(err)
