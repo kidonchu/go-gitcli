@@ -278,6 +278,46 @@ func Stash(repo *git.Repository) error {
 	return nil
 }
 
+// PopLastStash pops stash for current branch
+func PopLastStash(repo *git.Repository) error {
+
+	branchName, err := currentBranchName(repo)
+	if err != nil {
+		return err
+	}
+
+	stashConfigPath := fmt.Sprintf("branch.%s.laststash", branchName)
+
+	oid, err := ConfigString(stashConfigPath)
+	if err != nil {
+		// if no stash is found, nothing to pop
+		return nil
+	}
+
+	// find last stash's stash index
+	var stashIndex int
+	repo.Stashes.Foreach(func(index int, msg string, id *git.Oid) error {
+		if id.String() == oid {
+			stashIndex = index
+		}
+		return nil
+	})
+
+	opts, _ := git.DefaultStashApplyOptions()
+	err = repo.Stashes.Pop(stashIndex, opts)
+	if err != nil {
+		return err
+	}
+
+	// clear out last stash info
+	err = SetConfigString(stashConfigPath, "")
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func gitUser() (string, string, error) {
 	name, err := ConfigString("user.name")
 	if err != nil {
@@ -293,12 +333,18 @@ func gitUser() (string, string, error) {
 }
 
 func currentBranchName(repo *git.Repository) (string, error) {
-	currentBranch, err := repo.Head()
+
+	head, err := repo.Head()
 	if err != nil {
 		return "", err
 	}
 
-	return currentBranch.Name(), nil
+	branchName, err := head.Branch().Name()
+	if err != nil {
+		return "", err
+	}
+
+	return branchName, nil
 }
 
 // LookupBranchSource looks up branch source
