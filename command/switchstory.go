@@ -88,8 +88,7 @@ func CmdSwitchStory(c *cli.Context) {
 	fmt.Println("Popping last stashed changes for current branch")
 	err = gitutil.PopLastStash(repo)
 	if err != nil {
-		log.Fatal(err)
-		return
+		log.Println(err)
 	}
 
 	fmt.Println("Done")

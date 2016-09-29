@@ -9,20 +9,18 @@ import (
 	"github.com/kidonchu/gitcli/gitutil"
 )
 
-// CmdNewStory creates new branch for story
+// CmdNewStory creates new branchName for story
 func CmdNewStory(c *cli.Context) {
 
-	branch := c.String("branch")
-	if branch == "" {
-		fmt.Println("Branch to create is not specified")
-		return
+	branchName := c.String("branch")
+	if branchName == "" {
+		log.Fatal("Branch to create is not specified")
 	}
 
 	from := c.String("source")
 	source, err := gitutil.LookupBranchSource(from)
 	if err != nil {
 		log.Fatal(err)
-		return
 	}
 
 	// Get repo instance
@@ -30,14 +28,12 @@ func CmdNewStory(c *cli.Context) {
 	repo, err := gitutil.GetRepo(root)
 	if err != nil {
 		log.Fatal(err)
-		return
 	}
 
-	fmt.Printf("* %s => %s\n", source, branch)
+	fmt.Printf("* %s => %s\n", source, branchName)
 
 	answer := GetUserInput("Proceed with above items? (nY): ")
 	if answer != "Y" {
-		return
 	}
 
 	// Stash all changes for current branch, if any
@@ -45,35 +41,37 @@ func CmdNewStory(c *cli.Context) {
 	err = gitutil.Stash(repo)
 	if err != nil {
 		log.Fatal(err)
-		return
 	}
 
 	// Fetch from main repo before creating new branch
 	fmt.Println("Fetching most recent branches")
 	if err = gitutil.Fetch(repo, "ActiveCampaign"); err != nil {
+		// do not fail entire app even if fetch fails
 		log.Fatal(err)
-		return
 	}
 
 	fmt.Println("Creating new branch")
-	_, err = gitutil.CreateBranch(repo, branch, source)
+	newBranch, err := gitutil.CreateBranch(repo, branchName, source)
 	if err != nil {
 		log.Fatal(err)
-		return
 	}
 
-	fmt.Println("Finding remote")
+	fmt.Println("Finding remote `origin`")
 	remote, err := gitutil.GetRemote(repo, "origin")
 	if err != nil {
 		log.Fatalf("Unable to find remote: %+v\n", err)
-		return
 	}
 
 	fmt.Println("Pushing to remote")
-	ref := "refs/heads/" + branch
+	ref := "refs/heads/" + branchName
 	err = gitutil.Push(repo, remote, ref)
 	if err != nil {
 		log.Fatal(err)
-		return
+	}
+
+	fmt.Println("Setting upstream to remote branch")
+	err = gitutil.SetUpstream(newBranch, "origin")
+	if err != nil {
+		log.Fatal(err)
 	}
 }

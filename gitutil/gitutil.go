@@ -58,7 +58,7 @@ func DeleteBranches(repo *git.Repository, remote *git.Remote, branches []*git.Br
 	for _, branch := range branches {
 		err := DeleteBranch(repo, remote, branch)
 		if err != nil { // do not stop even if delete for one branch fails
-			log.Fatal(err)
+			log.Println(err)
 		}
 	}
 
@@ -168,22 +168,6 @@ func GetRepo(repoName string) (*git.Repository, error) {
 		return nil, fmt.Errorf("Unable to open repository: `%s`\n%+v\n", repoName, err)
 	}
 	return repo, nil
-}
-
-// SetUpstream sets upstream for local branch
-func SetUpstream(repo *git.Repository, remoteName string, branchName string) error {
-
-	branch, err := repo.LookupBranch(branchName, git.BranchLocal)
-	if err != nil {
-		return fmt.Errorf("Unable to lookup breanch `%s`\n%+v\n", branchName, err)
-	}
-	ref := fmt.Sprintf("%s/%s", remoteName, branchName)
-	err = branch.SetUpstream(ref)
-	if err != nil {
-		return fmt.Errorf("Unable to set upstream for `%s`\n%+v\n", ref, err)
-	}
-
-	return nil
 }
 
 // Push pushes given ref to remote repo
@@ -318,7 +302,7 @@ func PopLastStash(repo *git.Repository) error {
 
 	// if stash is found, pop it
 	if stashIndex > -1 {
-		fmt.Printf("\tPop: Last stash found with Oid: %s. Popping...\n", stashCommit)
+		fmt.Printf("\tPop: Last stash found with index: %d, Oid: %s. Popping...\n", stashIndex, stashCommit)
 		opts, _ := git.DefaultStashApplyOptions()
 		err = repo.Stashes.Pop(stashIndex, opts)
 		if err != nil {
@@ -380,12 +364,12 @@ func LookupBranchSource(from string) (string, error) {
 }
 
 // CreateBranch creates new branch
-func CreateBranch(repo *git.Repository, branch string, source string) (*git.Branch, error) {
+func CreateBranch(repo *git.Repository, branchName string, source string) (*git.Branch, error) {
 
 	var newBranch *git.Branch
 	var err error
 
-	newBranch, err = repo.LookupBranch(branch, git.BranchLocal)
+	newBranch, err = repo.LookupBranch(branchName, git.BranchLocal)
 	if err != nil {
 		// find source branch to create new branch from
 		sourceBranch, err := repo.LookupBranch(source, git.BranchRemote)
@@ -398,16 +382,16 @@ func CreateBranch(repo *git.Repository, branch string, source string) (*git.Bran
 			return nil, err
 		}
 
-		newBranch, err = repo.CreateBranch(branch, sourceCommit, false)
+		newBranch, err = repo.CreateBranch(branchName, sourceCommit, false)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	// Checkout new branch as HEAD
-	err = Checkout(repo, branch)
+	err = Checkout(repo, branchName)
 	if err != nil {
-		log.Fatalf("Unable to checkout new branch as HEAD: %+v", err)
+		log.Printf("Unable to checkout new branch as HEAD: %+v", err)
 	}
 
 	return newBranch, nil
@@ -433,6 +417,19 @@ func Checkout(repo *git.Repository, branchName string) error {
 	}
 	if err := repo.CheckoutHead(opts); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// SetUpstream sets upstream for local branch
+func SetUpstream(branch *git.Branch, remoteName string) error {
+
+	branchName, _ := branch.Name()
+	upstream := fmt.Sprintf("%s/%s", remoteName, branchName)
+	err := branch.SetUpstream(upstream)
+	if err != nil {
+		return fmt.Errorf("\tSetUpstream: Unable to set upstream to `%s`: %+v", upstream, err)
 	}
 
 	return nil
