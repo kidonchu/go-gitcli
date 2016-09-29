@@ -36,7 +36,7 @@ func DeleteBranch(repo *git.Repository, remote *git.Remote, branch *git.Branch) 
 
 	err := branch.Delete()
 	if err != nil {
-		return fmt.Errorf("Unable to delete branch: `%s`\n%+v\n", name, err)
+		return fmt.Errorf("Unable to delete branch: `%s`\n%+v", name, err)
 	}
 
 	// if remote branch, need to push to update remote repo
@@ -45,7 +45,7 @@ func DeleteBranch(repo *git.Repository, remote *git.Remote, branch *git.Branch) 
 		ref := fmt.Sprintf(":refs/heads/%s", name)
 		err = Push(repo, remote, ref)
 		if err != nil {
-			return fmt.Errorf("Unable to push refspec: `%s`\n%+v\n", ref, err)
+			return fmt.Errorf("Unable to push refspec: `%s`\n%+v", ref, err)
 		}
 	}
 
@@ -57,8 +57,8 @@ func DeleteBranches(repo *git.Repository, remote *git.Remote, branches []*git.Br
 
 	for _, branch := range branches {
 		err := DeleteBranch(repo, remote, branch)
-		if err != nil {
-			return err
+		if err != nil { // do not stop even if delete for one branch fails
+			log.Fatal(err)
 		}
 	}
 
@@ -405,19 +405,9 @@ func CreateBranch(repo *git.Repository, branch string, source string) (*git.Bran
 	}
 
 	// Checkout new branch as HEAD
-	_, err = repo.References.Lookup("refs/heads/" + branch)
+	err = Checkout(repo, branch)
 	if err != nil {
-		return nil, err
-	}
-	_, err = repo.References.CreateSymbolic("HEAD", "refs/heads/"+branch, true, "headOne")
-	if err != nil {
-		return nil, err
-	}
-	opts := &git.CheckoutOpts{
-		Strategy: git.CheckoutSafe | git.CheckoutRecreateMissing,
-	}
-	if err := repo.CheckoutHead(opts); err != nil {
-		return nil, err
+		log.Fatalf("Unable to checkout new branch as HEAD: %+v", err)
 	}
 
 	return newBranch, nil

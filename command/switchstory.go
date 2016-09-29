@@ -31,6 +31,7 @@ func CmdSwitchStory(c *cli.Context) {
 	}
 
 	if len(branches) <= 0 {
+		fmt.Println("There are no branch to switch to. Exiting...")
 		return
 	}
 
@@ -56,7 +57,7 @@ func CmdSwitchStory(c *cli.Context) {
 		return
 	}
 
-	// check if choose number is within range
+	// check if choosen number is within valid index
 	if choice > len(brsNoHead) {
 		log.Fatalf("Branch with choosen number: %d does not exist", choice)
 		return
