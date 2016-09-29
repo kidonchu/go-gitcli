@@ -206,26 +206,6 @@ func Push(repo *git.Repository, remote *git.Remote, ref string) error {
 // Stash stashes changes
 func Stash(repo *git.Repository) error {
 
-	var name, email string
-	name, email, err := gitUser()
-	if err != nil {
-		log.Fatal(err)
-		// Use default signature if not found
-		name = "Kidon Chu"
-		email = "kidonchu@gmail.com"
-	}
-
-	sig := &git.Signature{
-		Name:  name,
-		Email: email,
-		When:  time.Now(),
-	}
-
-	branchName, err := currentBranchName(repo)
-	if err != nil {
-		return err
-	}
-
 	// check if there are any changes to be stashed
 	opts := &git.StatusOptions{}
 	opts.Flags = git.StatusOptIncludeUntracked
@@ -238,41 +218,73 @@ func Stash(repo *git.Repository) error {
 		return err
 	}
 
-	// if there is any change to the current branch, stash theme
-	if entryCount > 0 {
+	// if there isn't any changed files, no need for stashing
+	if entryCount <= 0 {
+		fmt.Println("\tStash: No changes to stash")
+		return nil
+	}
 
-		// add every changes and new files into index
-		index, err := repo.Index()
-		if err != nil {
-			return err
-		}
-		err = index.AddAll([]string{}, git.IndexAddDefault, nil)
-		if err != nil {
-			return err
-		}
-		_, err = index.WriteTree()
-		if err != nil {
-			return err
-		}
-		err = index.Write()
-		if err != nil {
-			return err
-		}
+	fmt.Printf("\tStash: There are %d updated files. Start stashing...\n", entryCount)
 
-		oid, err := repo.Stashes.Save(
-			sig,
-			fmt.Sprintf("WIP on %s", branchName),
-			git.StashDefault,
-		)
-		if err != nil {
-			return err
-		}
+	var name, email string
+	name, email, err = gitUser()
+	if err != nil {
+		log.Fatal(err)
+		// Use default signature if not found
+		name = "Kidon Chu"
+		email = "kidonchu@gmail.com"
+	}
 
-		// store last stashed commit to config
-		err = SetConfigString(fmt.Sprintf("branch.%s.laststash", branchName), oid.String())
-		if err != nil {
-			return err
-		}
+	fmt.Printf("\tStash: Generating signature for stashing with %s and %s\n", name, email)
+	sig := &git.Signature{
+		Name:  name,
+		Email: email,
+		When:  time.Now(),
+	}
+
+	// add every changes and new files into index
+	index, err := repo.Index()
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("\tStash: Adding all changes to index")
+	err = index.AddAll([]string{}, git.IndexAddDefault, nil)
+	if err != nil {
+		return err
+	}
+	fmt.Println("\tStash: Writing tree")
+	_, err = index.WriteTree()
+	if err != nil {
+		return err
+	}
+	fmt.Println("\tStash: Writing index")
+	err = index.Write()
+	if err != nil {
+		return err
+	}
+
+	branchName, err := currentBranchName(repo)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("\tStash: Creating stash commit for %s\n", branchName)
+	oid, err := repo.Stashes.Save(
+		sig,
+		fmt.Sprintf("WIP on %s", branchName),
+		git.StashDefault,
+	)
+	if err != nil {
+		return err
+	}
+
+	// store last stashed commit to config
+	stashConfigPath := fmt.Sprintf("branch.%s.laststash", branchName)
+	fmt.Printf("\tStash: Storing last stash commit to '%s'\n", stashConfigPath)
+	err = SetConfigString(stashConfigPath, oid.String())
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -288,31 +300,35 @@ func PopLastStash(repo *git.Repository) error {
 
 	stashConfigPath := fmt.Sprintf("branch.%s.laststash", branchName)
 
-	oid, err := ConfigString(stashConfigPath)
+	stashCommit, err := ConfigString(stashConfigPath)
 	if err != nil {
 		// if no stash is found, nothing to pop
+		fmt.Println("\tPop: Nothing to pop")
 		return nil
 	}
 
 	// find last stash's stash index
-	var stashIndex int
+	stashIndex := -1
 	repo.Stashes.Foreach(func(index int, msg string, id *git.Oid) error {
-		if id.String() == oid {
+		if id.String() == stashCommit {
 			stashIndex = index
 		}
 		return nil
 	})
 
-	opts, _ := git.DefaultStashApplyOptions()
-	err = repo.Stashes.Pop(stashIndex, opts)
-	if err != nil {
-		return err
+	// if stash is found, pop it
+	if stashIndex > -1 {
+		fmt.Printf("\tPop: Last stash found with Oid: %s. Popping...\n", stashCommit)
+		opts, _ := git.DefaultStashApplyOptions()
+		err = repo.Stashes.Pop(stashIndex, opts)
+		if err != nil {
+			return err
+		}
 	}
 
 	// clear out last stash info
-	err = SetConfigString(stashConfigPath, "")
-	if err != nil {
-		return err
+	if stashCommit != "" {
+		SetConfigString(stashConfigPath, "")
 	}
 
 	return nil
@@ -405,4 +421,29 @@ func CreateBranch(repo *git.Repository, branch string, source string) (*git.Bran
 	}
 
 	return newBranch, nil
+}
+
+// Checkout checks out given branch
+func Checkout(repo *git.Repository, branchName string) error {
+
+	// see if we have a branch named with given branchName
+	_, err := repo.References.Lookup("refs/heads/" + branchName)
+	if err != nil {
+		return err
+	}
+
+	// mark HEAD as given branch
+	fmt.Printf("\tCheckout: Creating symbolic reference to HEAD for %s\n", branchName)
+	_, err = repo.References.CreateSymbolic("HEAD", "refs/heads/"+branchName, true, "")
+	if err != nil {
+		return err
+	}
+	opts := &git.CheckoutOpts{
+		Strategy: git.CheckoutSafe | git.CheckoutRecreateMissing,
+	}
+	if err := repo.CheckoutHead(opts); err != nil {
+		return err
+	}
+
+	return nil
 }
