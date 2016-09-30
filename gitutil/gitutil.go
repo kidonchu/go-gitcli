@@ -415,7 +415,7 @@ func Checkout(repo *git.Repository, branchName string) error {
 		return err
 	}
 	opts := &git.CheckoutOpts{
-		Strategy: git.CheckoutSafe | git.CheckoutRecreateMissing,
+		Strategy: git.CheckoutForce,
 	}
 	if err := repo.CheckoutHead(opts); err != nil {
 		return err
