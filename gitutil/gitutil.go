@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"sort"
 	"time"
 
 	git "github.com/libgit2/git2go"
@@ -36,13 +37,14 @@ func DeleteBranch(repo *git.Repository, remote *git.Remote, branch *git.Branch) 
 
 	err := branch.Delete()
 	if err != nil {
-		return fmt.Errorf("Unable to delete branch: `%s`\n%+v", name, err)
+		return fmt.Errorf("\tDeleteBranch: Unable to delete branch: `%s`\n%+v", name, err)
 	}
 
 	// if remote branch, need to push to update remote repo
 	_, err = repo.LookupBranch(fmt.Sprintf("%s/%s", remote.Name(), name), git.BranchRemote)
 	if err == nil {
 		ref := fmt.Sprintf(":refs/heads/%s", name)
+		fmt.Printf("Deleting remote branch: `%s`...\n", name)
 		err = Push(repo, remote, ref)
 		if err != nil {
 			return fmt.Errorf("Unable to push refspec: `%s`\n%+v", ref, err)
@@ -433,4 +435,52 @@ func SetUpstream(branch *git.Branch, remoteName string) error {
 	}
 
 	return nil
+}
+
+// DeleteStashes deletes given stashes in repo
+func DeleteStashes(repo *git.Repository, stashes map[int]*StashInfo) {
+
+	// before deleting, sort by index descending order
+	// since dropping stash will reduce index by 1 each time
+	keys := make([]int, len(stashes))
+	i := 0
+	for k := range stashes {
+		keys[i] = k
+		i++
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(keys)))
+
+	for _, k := range keys {
+		stashInfo := stashes[k]
+		err := repo.Stashes.Drop(stashInfo.Index)
+		if err != nil {
+			fmt.Printf("%+v", err)
+		}
+	}
+}
+
+// FindStashes fines stashes in repo that matches given branch
+func FindStashes(repo *git.Repository, pattern string) map[int]*StashInfo {
+
+	regex, _ := regexp.Compile(pattern)
+
+	// delete stashes that match the pattern
+	stashes := make(map[int]*StashInfo)
+	repo.Stashes.Foreach(func(index int, msg string, id *git.Oid) error {
+		matched := regex.FindString(msg)
+		if matched != "" {
+			stashInfo := &StashInfo{Index: index, ID: id, Msg: msg}
+			stashes[index] = stashInfo
+		}
+		return nil
+	})
+
+	return stashes
+}
+
+// StashInfo stores information about stash
+type StashInfo struct {
+	Index int
+	ID    *git.Oid
+	Msg   string
 }

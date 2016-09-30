@@ -33,6 +33,8 @@ func CmdDeleteStory(c *cli.Context) {
 		return
 	}
 
+	stashes := gitutil.FindStashes(repo, "^.*"+pattern+".*$")
+
 	// Now handle databases
 	var (
 		host, _ = gitutil.ConfigString("story.hosteddb.host")
@@ -55,7 +57,7 @@ func CmdDeleteStory(c *cli.Context) {
 		return
 	}
 
-	if len(branches) < 1 && len(dbs) < 1 {
+	if len(branches) < 1 && len(dbs) < 1 && len(stashes) < 1 {
 		fmt.Println("Nothing to delete")
 		return
 	}
@@ -66,6 +68,13 @@ func CmdDeleteStory(c *cli.Context) {
 		for _, b := range branches {
 			name, _ := b.Name()
 			fmt.Printf("* %s\n", name)
+		}
+		fmt.Println("")
+	}
+	if len(stashes) > 0 {
+		fmt.Println("Following stashes will be deleted")
+		for _, stash := range stashes {
+			fmt.Printf("* %s\n", stash.Msg)
 		}
 		fmt.Println("")
 	}
@@ -80,6 +89,7 @@ func CmdDeleteStory(c *cli.Context) {
 	// If confirmed, delete branches and databases
 	answer := GetUserInput("Continue? (nY): ")
 	if answer == "Y" {
+
 		remote, err := gitutil.GetRemote(repo, "origin")
 		if err != nil {
 			log.Fatal(err)
@@ -92,10 +102,14 @@ func CmdDeleteStory(c *cli.Context) {
 			return
 		}
 
+		gitutil.DeleteStashes(repo, stashes)
+
 		err = dbutil.Drop(dbh, dbs)
 		if err != nil {
 			log.Fatal(err)
 			return
 		}
 	}
+
+	fmt.Println("Done")
 }
