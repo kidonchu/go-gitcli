@@ -493,6 +493,5 @@ func ExtractRemote(source string) (string, error) {
 	if len(matched) != 2 {
 		return "", fmt.Errorf("could not extract remote name from `%s`", source)
 	}
-	fmt.Printf("matched = %+v\n", matched)
 	return matched[1], nil
 }

@@ -44,10 +44,15 @@ func CmdNewStory(c *cli.Context) {
 	}
 
 	// Fetch from main repo before creating new branch
-	fmt.Println("Fetching most recent branches")
-	if err = gitutil.Fetch(repo, "ActiveCampaign"); err != nil {
+	var remoteName string
+	remoteName, err = gitutil.ExtractRemote(source)
+	if err != nil {
+		remoteName = "origin" // default to origin
+	}
+	fmt.Printf("Fetching most recent with remote: `%s`\n", remoteName)
+	if err = gitutil.Fetch(repo, remoteName); err != nil {
 		// do not fail entire app even if fetch fails
-		log.Fatal(err)
+		log.Println(err)
 	}
 
 	fmt.Println("Creating new branch")
