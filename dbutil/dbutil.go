@@ -27,10 +27,10 @@ func FindDbs(dbh *sql.DB, pattern string) ([]string, error) {
 	var dbs []string
 
 	rows, err := dbh.Query("SHOW DATABASES")
-	defer rows.Close()
 	if err != nil {
 		return nil, fmt.Errorf("Unable to get a list of databases: %+v", err)
 	}
+	defer rows.Close()
 
 	regex, _ := regexp.Compile(pattern)
 	for rows.Next() {

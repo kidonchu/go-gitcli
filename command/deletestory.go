@@ -43,21 +43,15 @@ func CmdDeleteStory(c *cli.Context) {
 		pass, _ = gitutil.ConfigString("story.hosteddb.pass")
 	)
 
+	var dbs []string
 	dbh, err := dbutil.Connect(host, port, user, pass)
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
-	defer dbh.Close()
-
-	// find list of dbs to delete
-	dbs, err := dbutil.FindDbs(dbh, "^.*"+pattern+".*$")
-	if err != nil {
-		log.Fatal(err)
-		return
+	if err == nil {
+		defer dbh.Close()
+		// find list of dbs to delete
+		dbs, _ = dbutil.FindDbs(dbh, "^.*"+pattern+".*$")
 	}
 
-	if len(branches) < 1 && len(dbs) < 1 && len(stashes) < 1 {
+	if len(branches) < 1 && len(stashes) < 1 && len(dbs) < 1 {
 		fmt.Println("Nothing to delete")
 		return
 	}
@@ -90,24 +84,27 @@ func CmdDeleteStory(c *cli.Context) {
 	answer := GetUserInput("Continue? (nY): ")
 	if answer == "Y" {
 
-		remote, err := gitutil.GetRemote(repo, "origin")
-		if err != nil {
-			log.Fatal(err)
-			return
+		if len(branches) > 0 {
+			remote, err := gitutil.GetRemote(repo, "origin")
+			if err != nil {
+				fmt.Printf("%+v", err)
+			}
+
+			err = gitutil.DeleteBranches(repo, remote, branches)
+			if err != nil {
+				fmt.Printf("%+v", err)
+			}
 		}
 
-		err = gitutil.DeleteBranches(repo, remote, branches)
-		if err != nil {
-			log.Fatal(err)
-			return
+		if len(stashes) > 0 {
+			gitutil.DeleteStashes(repo, stashes)
 		}
 
-		gitutil.DeleteStashes(repo, stashes)
-
-		err = dbutil.Drop(dbh, dbs)
-		if err != nil {
-			log.Fatal(err)
-			return
+		if len(dbs) > 0 {
+			err = dbutil.Drop(dbh, dbs)
+			if err != nil {
+				fmt.Printf("%+v", err)
+			}
 		}
 	}
 
