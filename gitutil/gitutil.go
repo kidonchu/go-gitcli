@@ -484,3 +484,14 @@ type StashInfo struct {
 	ID    *git.Oid
 	Msg   string
 }
+
+// ExtractRemote extracts branch name from given branch name
+func ExtractRemote(source string) (string, error) {
+	pattern := "^([a-zA-Z0-9]+).*$"
+	branchRegex, _ := regexp.Compile(pattern)
+	matched := branchRegex.FindStringSubmatch(source)
+	if len(matched) != 2 {
+		return "", fmt.Errorf("could not extract remote name from `%s`", source)
+	}
+	return matched[1], nil
+}
