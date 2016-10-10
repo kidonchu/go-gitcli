@@ -5,6 +5,7 @@ sudo: required
 install:
     - ./script/install-libgit2.sh
     - go get github.com/codegangsta/cli
+    - go get github.com/go-sql-driver/mysql
 
 go:
   - 1.7
