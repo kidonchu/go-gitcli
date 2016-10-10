@@ -2,9 +2,10 @@ language: go
 
 sudo: required
 
-install: ./script/install-libgit2.sh
+install:
+    - ./script/install-libgit2.sh
+    - go get github.com/codegangsta/cli
 
 go:
   - 1.7
-  - tip
 
