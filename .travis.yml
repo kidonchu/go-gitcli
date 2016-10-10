@@ -1,1 +1,10 @@
 language: go
+
+sudo: required
+
+install: ./script/install-libgit2.sh
+
+go:
+  - 1.7
+  - tip
+
