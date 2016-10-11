@@ -6,6 +6,7 @@ install:
     - ./script/install-libgit2.sh
     - go get github.com/codegangsta/cli
     - go get github.com/go-sql-driver/mysql
+    - go get github.com/libgit2/git2go
 
 go:
   - 1.7
