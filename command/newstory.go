@@ -61,10 +61,15 @@ func CmdNewStory(c *cli.Context) {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Finding remote `origin`")
-	remote, err := gitutil.GetRemote(repo, "origin")
+	targetRemoteName, err := gitutil.ConfigString("story.remote.target")
 	if err != nil {
-		log.Fatalf("Unable to find remote: %+v\n", err)
+		targetRemoteName = "origin" // default to origin
+	}
+
+	fmt.Printf("Finding remote `%s`\n", targetRemoteName)
+	remote, err := gitutil.GetRemote(repo, targetRemoteName)
+	if err != nil {
+		log.Fatalf("Unable to find target remote: %+v\n", err)
 	}
 
 	fmt.Println("Pushing to remote")
@@ -75,7 +80,7 @@ func CmdNewStory(c *cli.Context) {
 	}
 
 	fmt.Println("Setting upstream to remote branch")
-	err = gitutil.SetUpstream(newBranch, "origin")
+	err = gitutil.SetUpstream(newBranch, targetRemoteName)
 	if err != nil {
 		log.Fatal(err)
 	}
