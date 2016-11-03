@@ -49,6 +49,13 @@ var Commands = []cli.Command{
 				Flags:   GlobalFlags,
 			},
 			{
+				Name:    "pull",
+				Aliases: []string{"p"},
+				Usage:   "Pull most recent remote to current story",
+				Action:  command.CmdPullStory,
+				Flags:   GlobalFlags,
+			},
+			{
 				Name:    "switch",
 				Aliases: []string{"s"},
 				Usage:   "Switch to another story",

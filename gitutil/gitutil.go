@@ -1,10 +1,12 @@
 package gitutil
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"regexp"
 	"sort"
+	"strings"
 	"time"
 
 	git "github.com/libgit2/git2go"
@@ -19,8 +21,8 @@ var (
 // CredentialsCallback creates ssh key for github creds
 func CredentialsCallback(url string, username string, allowedTypes git.CredType) (git.ErrorCode, *git.Cred) {
 	ret, cred := git.NewCredSshKey(
-		"git", "/Users/kchu/.ssh/id_rsa_github.pub",
-		"/Users/kchu/.ssh/id_rsa_github", "")
+		"git", "/Users/kchu/.ssh/id_rsa.pub",
+		"/Users/kchu/.ssh/id_rsa", "")
 	return git.ErrorCode(ret), &cred
 }
 
@@ -479,6 +481,103 @@ func FindStashes(repo *git.Repository, pattern string) map[int]*StashInfo {
 	})
 
 	return stashes
+}
+
+// Pull rocks
+func Pull(repo *git.Repository, name string) error {
+
+	remoteBranch, err := repo.References.Lookup(fmt.Sprintf("refs/remotes/%s", name))
+	if err != nil {
+		return err
+	}
+
+	// Get annotated commit
+	annotatedCommit, err := repo.AnnotatedCommitFromRef(remoteBranch)
+	if err != nil {
+		return err
+	}
+
+	// Do the merge analysis
+	mergeHeads := make([]*git.AnnotatedCommit, 1)
+	mergeHeads[0] = annotatedCommit
+	analysis, _, err := repo.MergeAnalysis(mergeHeads)
+	if err != nil {
+		return err
+	}
+
+	if analysis&git.MergeAnalysisUpToDate != 0 {
+		fmt.Println("Already up to date.")
+		return nil
+	} else if analysis&git.MergeAnalysisNormal != 0 {
+
+		fmt.Println("Merging normal")
+
+		// merge changes
+		if err := repo.Merge([]*git.AnnotatedCommit{annotatedCommit}, nil, nil); err != nil {
+			return err
+		}
+
+		// Check for conflicts
+		index, err := repo.Index()
+		if err != nil {
+			return err
+		}
+
+		if index.HasConflicts() {
+			return errors.New("Conflicts encountered. Please resolve them.")
+		}
+
+		sig, err := repo.DefaultSignature()
+		if err != nil {
+			return err
+		}
+
+		head, err := repo.Head()
+		if err != nil {
+			return err
+		}
+
+		// Get Write Tree
+		treeID, err := index.WriteTree()
+		if err != nil {
+			return err
+		}
+
+		// Get tree to commit with
+		tree, err := repo.LookupTree(treeID)
+		if err != nil {
+			return err
+		}
+
+		// Get local commit to merge to
+		localCommit, err := repo.LookupCommit(head.Target())
+		if err != nil {
+			return err
+		}
+
+		// Get remote commit to merge with
+		remoteCommit, err := repo.LookupCommit(remoteBranch.Target())
+		if err != nil {
+			return err
+		}
+
+		// Make the merge commit
+		remoteBranchName := strings.Replace(remoteBranch.Name(), "refs/remotes/", "", 1)
+		localBranchName := strings.Replace(head.Name(), "refs/heads/", "", 1)
+		msg := fmt.Sprintf("Merge branch '%s' into '%s'", remoteBranchName, localBranchName)
+		_, err = repo.CreateCommit("HEAD", sig, sig, msg, tree, localCommit, remoteCommit)
+		if err != nil {
+			return err
+		}
+
+		// Clean up repo state
+		repo.StateCleanup()
+
+	} else {
+		return fmt.Errorf("Unexpected merge analysis result %d", analysis)
+	}
+
+	return nil
 }
 
 // StashInfo stores information about stash
