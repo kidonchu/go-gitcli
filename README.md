@@ -124,6 +124,24 @@ I run these commands to pull.
     
 If there are any conflicts, you will get a message saying you have conflicts. These conflicts will need to be handled manually and comitted.
 
+## Bonus
+
+I have my `git` command setup in the following way.
+
+```
+git () {
+        customCmds=("s" "story")
+        if [[ ${customCmds[(i)$1]} -le ${#customCmds} ]]
+        then
+                gitcli "$@"
+        else
+                /usr/bin/git "$@"
+        fi
+}
+```
+
+This lets me use `git story new/switch/delete/pull` as if I am using the native git client.
+
 ## Author
 
 [kidonchu](https://github.com/kidonchu)
