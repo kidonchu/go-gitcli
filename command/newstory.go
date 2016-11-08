@@ -34,6 +34,7 @@ func CmdNewStory(c *cli.Context) {
 
 	answer := GetUserInput("Proceed with above items? (nY): ")
 	if answer != "Y" {
+		return
 	}
 
 	// Stash all changes for current branch, if any
