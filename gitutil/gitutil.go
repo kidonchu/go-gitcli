@@ -20,9 +20,13 @@ var (
 
 // CredentialsCallback creates ssh key for github creds
 func CredentialsCallback(url string, username string, allowedTypes git.CredType) (git.ErrorCode, *git.Cred) {
-	ret, cred := git.NewCredSshKey(
-		"git", "/Users/kchu/.ssh/id_rsa.pub",
-		"/Users/kchu/.ssh/id_rsa", "")
+
+	// Get path to public/private keys from config
+	publickey, _ := ConfigString("story.ssh.publickey")
+	privatekey, _ := ConfigString("story.ssh.privatekey")
+
+	ret, cred := git.NewCredSshKey("git", publickey, privatekey, "")
+
 	return git.ErrorCode(ret), &cred
 }
 

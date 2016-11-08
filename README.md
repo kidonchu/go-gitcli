@@ -17,6 +17,13 @@ Currently only supporting MacOS 64bit binary. More binaries for different OS wil
 Download the released binary from [releases](https://github.com/kidonchu/gitcli/releases) and place it
 in your PATH to run globally.
 
+Enable accessing git repos via ssh ([link to instruction](https://help.github.com/articles/generating-an-ssh-key/)).
+
+Then add ssh key paths to git config.
+
+    $> git config story.ssh.publickey '/Users/kchu/.ssh/id_rsa.pub'
+    $> git config story.ssh.privatekey '/Users/kchu/.ssh/id_rsa'
+
 ### Building Binary from Source (Advanced)
 
 To be added.
