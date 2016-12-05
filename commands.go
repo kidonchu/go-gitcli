@@ -49,6 +49,13 @@ var Commands = []cli.Command{
 				Flags:   GlobalFlags,
 			},
 			{
+				Name:    "pullrequest",
+				Aliases: []string{"pr"},
+				Usage:   "Open pull request for current story",
+				Action:  command.CmdPullRequestStory,
+				Flags:   GlobalFlags,
+			},
+			{
 				Name:    "pull",
 				Aliases: []string{"p"},
 				Usage:   "Pull most recent remote to current story",
