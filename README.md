@@ -131,6 +131,30 @@ I run these commands to pull.
     
 If there are any conflicts, you will get a message saying you have conflicts. These conflicts will need to be handled manually and comitted.
 
+### Opening Pull Request page in browser
+
+Add *source* to git config
+
+	$> git config story.source.SOURCE_IDENTIFIER SOURCE_BRANCH_NAME
+
+Then run the gitcli command to open a link to create pull request 
+for current branch merging into `SOURCE_IDENTIFIER` repository.
+
+	$> gitcli story pullrequest -s SOURCE_IDENTIFIER
+
+For example, in the following case,
+
+* I forked my repo from FooBar/master into origin/master
+* I created a new feature branch feature/new-feature with origin/new-feature as upstream
+* I need to create a pull request against FooBar/master
+
+I run these commands to open pull request link.
+
+	$> git config story.source.master FooBar/master
+    $> gitcli story pullrequest --source master
+
+This will open a pull request to merge feature/new-feature into FooBar/master
+
 ## Bonus
 
 I have my `git` command setup in the following way.
