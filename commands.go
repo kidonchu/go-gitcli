@@ -67,7 +67,10 @@ var Commands = []cli.Command{
 				Aliases: []string{"s"},
 				Usage:   "Switch to another story",
 				Action:  command.CmdSwitchStory,
-				Flags:   GlobalFlags,
+				Flags: append(GlobalFlags, cli.BoolFlag{
+					Name:  "r,recent",
+					Usage: "If true, switch to most recent branch. Higher priority than --pattern flag",
+				}),
 			},
 		},
 	},

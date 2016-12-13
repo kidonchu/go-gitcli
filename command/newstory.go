@@ -37,6 +37,16 @@ func CmdNewStory(c *cli.Context) {
 		return
 	}
 
+	// Store current branch in most recent branch
+	currentBranchName, err := gitutil.CurrentBranchName(repo)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = gitutil.SetMostRecentBranch(currentBranchName)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// Stash all changes for current branch, if any
 	fmt.Println("Stashing changes on current branch")
 	err = gitutil.Stash(repo)
