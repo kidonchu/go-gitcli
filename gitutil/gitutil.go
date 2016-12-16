@@ -256,7 +256,7 @@ func Stash(repo *git.Repository) error {
 		return err
 	}
 
-	branchName, err := currentBranchName(repo)
+	branchName, err := CurrentBranchName(repo)
 	if err != nil {
 		return err
 	}
@@ -285,7 +285,7 @@ func Stash(repo *git.Repository) error {
 // PopLastStash pops stash for current branch
 func PopLastStash(repo *git.Repository) error {
 
-	branchName, err := currentBranchName(repo)
+	branchName, err := CurrentBranchName(repo)
 	if err != nil {
 		return err
 	}
@@ -293,7 +293,7 @@ func PopLastStash(repo *git.Repository) error {
 	stashConfigPath := fmt.Sprintf("branch.%s.laststash", branchName)
 
 	stashCommit, err := ConfigString(stashConfigPath)
-	if err != nil {
+	if err != nil || stashCommit == "" {
 		// if no stash is found, nothing to pop
 		fmt.Println("\tPop: Nothing to pop")
 		return nil
@@ -340,7 +340,8 @@ func gitUser() (string, string, error) {
 	return name, email, nil
 }
 
-func currentBranchName(repo *git.Repository) (string, error) {
+// CurrentBranchName fetches current branch's name
+func CurrentBranchName(repo *git.Repository) (string, error) {
 
 	head, err := repo.Head()
 	if err != nil {
@@ -461,6 +462,7 @@ func DeleteStashes(repo *git.Repository, stashes map[int]*StashInfo) {
 
 	for _, k := range keys {
 		stashInfo := stashes[k]
+		fmt.Printf("Deleting stash: `%s`...\n", stashInfo.Msg)
 		err := repo.Stashes.Drop(stashInfo.Index)
 		if err != nil {
 			fmt.Printf("%+v", err)
@@ -600,4 +602,37 @@ func ExtractRemote(source string) (string, error) {
 		return "", fmt.Errorf("could not extract remote name from `%s`", source)
 	}
 	return matched[1], nil
+}
+
+// GetMostRecentBranch fetches most recent branch
+func GetMostRecentBranch() (string, error) {
+	branchName, err := ConfigString("story.mostrecent")
+	if err != nil {
+		return "", err
+	}
+	return branchName, nil
+}
+
+// SetMostRecentBranch stores most recent branch
+func SetMostRecentBranch(branchName string) error {
+	err := SetConfigString("story.mostrecent", branchName)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Branches a list of git branches
+type Branches []*git.Branch
+
+func (branches Branches) Len() int {
+	return len(branches)
+}
+func (branches Branches) Less(i, j int) bool {
+	iName, _ := branches[i].Name()
+	jName, _ := branches[j].Name()
+	return iName < jName
+}
+func (branches Branches) Swap(i, j int) {
+	branches[i], branches[j] = branches[j], branches[i]
 }
