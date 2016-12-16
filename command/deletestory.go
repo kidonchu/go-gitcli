@@ -1,9 +1,13 @@
 package command
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
+	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/codegangsta/cli"
 	_ "github.com/go-sql-driver/mysql" // mysql driver
@@ -27,27 +31,25 @@ func CmdDeleteStory(c *cli.Context) {
 		return
 	}
 
+	// find branches to delete
 	branches, err := gitutil.FindBranches(repo, "^.*"+pattern+".*$", git.BranchLocal)
 	if err != nil {
 		log.Fatal(err)
 		return
 	}
 
+	// find stashes to delete
 	stashes := gitutil.FindStashes(repo, "^.*"+pattern+".*$")
 
 	// Now handle databases
-	var (
-		host, _ = gitutil.ConfigString("story.hosteddb.host")
-		port, _ = gitutil.ConfigInt32("story.hosteddb.port")
-		user, _ = gitutil.ConfigString("story.hosteddb.user")
-		pass, _ = gitutil.ConfigString("story.hosteddb.pass")
-	)
-
-	var dbs []string
-	dbh, err := dbutil.Connect(host, port, user, pass)
+	dbh, err := getDbConnection()
 	if err == nil {
 		defer dbh.Close()
-		// find list of dbs to delete
+	}
+
+	var dbs []string
+	if dbh != nil {
+		// find dbs to delete
 		dbs, _ = dbutil.FindDbs(dbh, "^.*"+pattern+".*$")
 	}
 
@@ -56,57 +58,118 @@ func CmdDeleteStory(c *cli.Context) {
 		return
 	}
 
-	// Show list of branches and databases to be deleted and get confirmation
+	branchesToDelete, stashesToDelete, dbsToDelete, err := getItemsToDelete(branches, stashes, dbs)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if len(branchesToDelete) > 0 {
+		remote, err := gitutil.GetRemote(repo, "origin")
+		if err != nil {
+			fmt.Printf("%+v", err)
+		}
+
+		err = gitutil.DeleteBranches(repo, remote, branchesToDelete)
+		if err != nil {
+			fmt.Printf("%+v", err)
+		}
+	}
+
+	if len(stashesToDelete) > 0 {
+		gitutil.DeleteStashes(repo, stashesToDelete)
+	}
+
+	if len(dbsToDelete) > 0 {
+		err = dbutil.Drop(dbh, dbsToDelete)
+		if err != nil {
+			fmt.Printf("%+v", err)
+		}
+	}
+}
+
+func getDbConnection() (*sql.DB, error) {
+	var (
+		host, _ = gitutil.ConfigString("story.hosteddb.host")
+		port, _ = gitutil.ConfigInt32("story.hosteddb.port")
+		user, _ = gitutil.ConfigString("story.hosteddb.user")
+		pass, _ = gitutil.ConfigString("story.hosteddb.pass")
+	)
+
+	dbh, err := dbutil.Connect(host, port, user, pass)
+	if err != nil {
+		return nil, err
+	}
+	return dbh, nil
+}
+
+func getItemsToDelete(
+	branches gitutil.Branches,
+	stashes map[int]*gitutil.StashInfo,
+	dbs []string,
+) (
+	[]*git.Branch,
+	map[int]*gitutil.StashInfo,
+	[]string,
+	error,
+) {
+
+	// prepare delete options
+	options := make(map[int]string)
+	optionIndex := 0
+
 	if len(branches) > 0 {
-		fmt.Println("Following branches will be deleted")
-		for _, b := range branches {
+		sort.Sort(branches)
+		fmt.Println("Branches:")
+		for i, b := range branches {
 			name, _ := b.Name()
-			fmt.Printf("* %s\n", name)
+			options[optionIndex] = "branch-" + strconv.Itoa(i)
+			optionIndex++
+			fmt.Printf("%d. %s\n", optionIndex, name)
 		}
 		fmt.Println("")
 	}
 	if len(stashes) > 0 {
-		fmt.Println("Following stashes will be deleted")
-		for _, stash := range stashes {
-			fmt.Printf("* %s\n", stash.Msg)
+		fmt.Println("Stashes:")
+		for i, stash := range stashes {
+			options[optionIndex] = "stash-" + strconv.Itoa(i)
+			optionIndex++
+			fmt.Printf("%d. %s\n", optionIndex, stash.Msg)
 		}
 		fmt.Println("")
 	}
 	if len(dbs) > 0 {
-		fmt.Println("Following databases will be deleted")
-		for _, database := range dbs {
-			fmt.Printf("* %s\n", database)
+		sort.Strings(dbs)
+		fmt.Println("Databases:")
+		for i, database := range dbs {
+			options[optionIndex] = "database-" + strconv.Itoa(i)
+			optionIndex++
+			fmt.Printf("%d. %s\n", optionIndex, database)
 		}
 		fmt.Println("")
 	}
 
-	// If confirmed, delete branches and databases
-	answer := GetUserInput("Continue? (nY): ")
-	if answer == "Y" {
+	answer := GetUserInput("Choose options to delete (separted by spaces): ")
+	choices := strings.Split(answer, " ")
 
-		if len(branches) > 0 {
-			remote, err := gitutil.GetRemote(repo, "origin")
-			if err != nil {
-				fmt.Printf("%+v", err)
-			}
+	var branchesToDelete []*git.Branch
+	stashesToDelete := make(map[int]*gitutil.StashInfo)
+	var dbsToDelete []string
 
-			err = gitutil.DeleteBranches(repo, remote, branches)
-			if err != nil {
-				fmt.Printf("%+v", err)
-			}
-		}
+	for _, i := range choices {
+		optionIndex, _ := strconv.Atoi(i)
+		optionIndex--
+		option := strings.Split(options[optionIndex], "-")
+		index, _ := strconv.Atoi(option[1])
 
-		if len(stashes) > 0 {
-			gitutil.DeleteStashes(repo, stashes)
-		}
-
-		if len(dbs) > 0 {
-			err = dbutil.Drop(dbh, dbs)
-			if err != nil {
-				fmt.Printf("%+v", err)
-			}
+		switch option[0] {
+		case "branch":
+			branchesToDelete = append(branchesToDelete, branches[index])
+		case "stash":
+			stashesToDelete[index] = stashes[index]
+		case "database":
+			dbsToDelete = append(dbsToDelete, dbs[index])
 		}
 	}
 
-	fmt.Println("Done")
+	return branchesToDelete, stashesToDelete, dbsToDelete, nil
 }

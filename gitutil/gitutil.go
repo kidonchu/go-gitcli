@@ -462,6 +462,7 @@ func DeleteStashes(repo *git.Repository, stashes map[int]*StashInfo) {
 
 	for _, k := range keys {
 		stashInfo := stashes[k]
+		fmt.Printf("Deleting stash: `%s`...\n", stashInfo.Msg)
 		err := repo.Stashes.Drop(stashInfo.Index)
 		if err != nil {
 			fmt.Printf("%+v", err)
@@ -619,4 +620,19 @@ func SetMostRecentBranch(branchName string) error {
 		return err
 	}
 	return nil
+}
+
+// Branches a list of git branches
+type Branches []*git.Branch
+
+func (branches Branches) Len() int {
+	return len(branches)
+}
+func (branches Branches) Less(i, j int) bool {
+	iName, _ := branches[i].Name()
+	jName, _ := branches[j].Name()
+	return iName < jName
+}
+func (branches Branches) Swap(i, j int) {
+	branches[i], branches[j] = branches[j], branches[i]
 }
