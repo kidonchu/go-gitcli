@@ -18,9 +18,10 @@ func CmdNewStory(c *cli.Context) {
 	}
 
 	from := c.String("source")
-	source, err := gitutil.LookupBranchSource(from)
+	source, err := gitutil.LookupBranchSource(from, false)
 	if err != nil {
-		log.Fatal(err)
+		// if story source not found, use it as is
+		source = from
 	}
 
 	// Get repo instance

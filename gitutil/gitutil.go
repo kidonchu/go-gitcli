@@ -358,7 +358,7 @@ func CurrentBranchName(repo *git.Repository) (string, error) {
 
 // LookupBranchSource searches gitconfig to find actual branch name to be used as source of new branch based on given `from` string.
 // Returned source branch is in a format of <remote>/<branchname>.
-func LookupBranchSource(from string) (string, error) {
+func LookupBranchSource(from string, useDefault bool) (string, error) {
 
 	// lookup given `from` config first
 	source, err := ConfigString("story.source." + from)
@@ -366,10 +366,12 @@ func LookupBranchSource(from string) (string, error) {
 		return source, nil
 	}
 
-	// if given source could not be found, use default
-	source, err = ConfigString("story.source.default")
-	if err == nil {
-		return source, nil
+	if useDefault {
+		// if given source could not be found, use default
+		source, err = ConfigString("story.source.default")
+		if err == nil {
+			return source, nil
+		}
 	}
 
 	return "", fmt.Errorf("Unable to find source for `%s` or `default`", from)

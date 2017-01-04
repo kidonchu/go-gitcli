@@ -14,7 +14,7 @@ import (
 func CmdPullStory(c *cli.Context) {
 
 	from := c.String("source")
-	source, err := gitutil.LookupBranchSource(from)
+	source, err := gitutil.LookupBranchSource(from, true)
 	if err != nil {
 		log.Fatal(err)
 	}
