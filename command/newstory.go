@@ -18,6 +18,10 @@ func CmdNewStory(c *cli.Context) {
 	}
 
 	from := c.String("source")
+	if from == "" {
+		from = "default"
+	}
+
 	source, err := gitutil.LookupBranchSource(from, false)
 	if err != nil {
 		// if story source not found, use it as is
