@@ -203,7 +203,10 @@ func getTitleAndBody() (string, string) {
 	body, err := ioutil.ReadFile(prBodyFile)
 	check(err)
 
-	return string(title), string(body)
+	trimmedTitle := strings.Trim(string(title), " \n")
+	trimmedBody := strings.Trim(string(body), " \n")
+
+	return trimmedTitle, trimmedBody
 }
 
 func openEditor(filename string) {
