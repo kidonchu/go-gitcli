@@ -22,3 +22,9 @@ func GetUserInput(message string) string {
 	text = strings.Trim(text, "\n")
 	return text
 }
+
+func check(e error) {
+	if e != nil {
+		panic(e)
+	}
+}
