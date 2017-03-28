@@ -119,7 +119,7 @@ func createPR(
 	title, body := getTitleAndBody()
 
 	// append issue number to the end of title
-	prefix, _ := gitutil.ConfigString("story.core.issueprefix")
+	prefix, _ := gitutil.ConfigString("story.issuePrefix")
 	title += fmt.Sprintf(" [%s%s]", prefix, jiraID)
 
 	fmt.Println("Be patient...")
