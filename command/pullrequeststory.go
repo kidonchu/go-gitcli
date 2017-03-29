@@ -99,22 +99,11 @@ func createPR(
 	mergeBranch string,
 ) (string, error) {
 
-	pattern, _ := gitutil.ConfigString("story.issueBranchPattern")
-	if pattern == "" {
-		return "", fmt.Errorf(
-			"Issue pattern required. Run '%s' to configure.",
-			"git config story.issueBranchPattern <issue_branch_pattern>",
-		)
+	// get issue ticket number
+	issueID, err := extractIssueNumber(mergeBranch)
+	if err != nil {
+		return "", err
 	}
-
-	// get JIRA ticket number
-	regex, _ := regexp.Compile(pattern)
-	matched := regex.FindStringSubmatch(mergeBranch)
-	if len(matched) == 0 {
-		return "", fmt.Errorf("Not a valid branch to merge: %s", mergeBranch)
-	}
-
-	jiraID := matched[2]
 
 	title, body := getTitleAndBody()
 
