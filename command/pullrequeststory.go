@@ -219,3 +219,30 @@ func openEditor(filename string) {
 	err = cmd.Wait()
 	check(err)
 }
+
+/**
+ * extractIssueNumber extracts current issue's number
+ * using regex with given pattern. It returns the first matched
+ * string if matched, otherwise empty string.
+ */
+func extractIssueNumber(name string) (string, error) {
+
+	pattern, _ := gitutil.ConfigString("story.issueBranchPattern")
+	if pattern == "" {
+		return "", fmt.Errorf(
+			"Issue pattern required. Run '%s' to configure.",
+			"git config story.issueBranchPattern <issue_branch_pattern>",
+		)
+	}
+
+	regex, _ := regexp.Compile(pattern)
+	matched := regex.FindStringSubmatch(name)
+	if len(matched) == 0 {
+		return "", fmt.Errorf(
+			"Unable to extract issue number from '%s' with the pattern '%s'",
+			name, pattern,
+		)
+	}
+
+	return matched[1], nil
+}
