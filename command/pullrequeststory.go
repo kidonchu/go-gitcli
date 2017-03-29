@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 	"regexp"
 	"strings"
 
@@ -45,6 +44,7 @@ func CmdPullRequestStory(c *cli.Context) {
 	// Extract base repo name
 	regex, _ := regexp.Compile(`.*:(.*)/(.*)\.git?`)
 	matched := regex.FindStringSubmatch(baseRemoteURL)
+	realRemoteName := matched[1]
 	baseRepoName := matched[2]
 
 	// Get repo instance
@@ -81,9 +81,10 @@ func CmdPullRequestStory(c *cli.Context) {
 	compareRemoteName = matched[1]
 
 	// Create PR now
-	prURL, err := createPR(baseRemoteName, baseRepoName, baseBranchName, compareRemoteName, compareBranchName)
+	prURL, err := createPR(realRemoteName, baseRepoName, baseBranchName, compareRemoteName, compareBranchName)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Printf("err = %+v\n", err)
+		return
 	}
 
 	// Open created PR in the browser
@@ -99,46 +100,55 @@ func createPR(
 	mergeBranch string,
 ) (string, error) {
 
-	// get issue ticket number
-	issueID, err := extractIssueNumber(mergeBranch)
+	title, err := getTitle(mergeBranch)
 	if err != nil {
 		return "", err
 	}
 
-	title, body := getTitleAndBody()
-
-	// append issue number to the end of title
-	prefix, _ := gitutil.ConfigString("story.issuePrefix")
-	title += fmt.Sprintf(" [%s%s]", prefix, jiraID)
-
-	fmt.Println("Be patient...")
+	body, err := getBody()
+	if err != nil {
+		return "", err
+	}
 
 	head := fmt.Sprintf("%s:%s", mergeRepo, mergeBranch)
 
-	requestURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/pulls", owner, repo)
-	requestBody := strings.NewReader(fmt.Sprintf(`{ "title": "%s", "body": "%s", "head": "%s", "base": "%s" }`, title, body, head, base))
+	req := &request{
+		owner: owner, repo: repo,
+		Title: title, Body: body,
+		Head: head, Base: base,
+	}
 
-	req, err := http.NewRequest("POST", requestURL, requestBody)
+	// Build request object
+	httpreq, err := buildRequest(req)
 	if err != nil {
 		return "", err
 	}
 
-	token, _ := gitutil.ConfigString("story.core.oauthtoken")
-	req.Header.Set("Authorization", fmt.Sprintf("token %s", token))
-	req.Header.Set("Accept", "application/vnd.github.polaris-preview+json")
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
+	// Send http request to create PR
+	httpresp, err := http.DefaultClient.Do(httpreq)
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer httpresp.Body.Close()
 
 	// get URL to the PR
-	respBody, err := ioutil.ReadAll(resp.Body)
+	respBody, err := ioutil.ReadAll(httpresp.Body)
 	if err != nil {
 		return "", err
 	}
+
+	if httpresp.StatusCode != 200 {
+		var resp errorResponse
+		err = json.Unmarshal(respBody, &resp)
+		if err != nil {
+			return "", err
+		}
+		if resp.Message != "" {
+			fmt.Printf("resp.Errors = %+v\n", resp.Errors)
+			return "", errors.New(resp.Message)
+		}
+	}
+
 	prURL, err := extractPRURL(respBody)
 	if err != nil {
 		return "", err
@@ -147,79 +157,101 @@ func createPR(
 	return prURL, nil
 }
 
-func extractPRURL(respBody []byte) (string, error) {
-	var f interface{}
-	err := json.Unmarshal(respBody, &f)
+/**
+ * getTitle asks the user to type in the title of the PR.
+ * And then appends the issue number to the end of title
+ * inside of brackets.
+ */
+func getTitle(branch string) (string, error) {
+	curDir, _ := os.Getwd()
+	if !isGitRepo(curDir) {
+		return "", errors.New("Not a git repository")
+	}
+
+	msgFilename := fmt.Sprintf("%s/.git/PR_TITLE_MESSAGE", curDir)
+	msg, err := GetUserInputFromEditor(msgFilename)
 	if err != nil {
 		return "", err
 	}
-	m := f.(map[string]interface{})
-	url := m["html_url"].(string)
-	return url, nil
-}
 
-func getTitleAndBody() (string, string) {
-	curDir, _ := os.Getwd()
-	if _, err := os.Stat(fmt.Sprintf("%s/.git", curDir)); err != nil {
-		log.Fatal(errors.New("Not a git repository"))
-	}
-
-	prTitleFile := fmt.Sprintf("%s/.git/PR_TITLE_MESSAGE", curDir)
-	prBodyFile := fmt.Sprintf("%s/.git/PR_BODY_MESSAGE", curDir)
-
-	fTitle, err := os.Create(prTitleFile)
+	// get issue ticket number
+	issueID, err := extractIssueNumber(branch)
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
-	defer fTitle.Close()
 
-	fTitle.WriteString("Title")
+	// append issue number to the end of title
+	prefix, _ := gitutil.ConfigString("story.issuePrefix")
+	msg += fmt.Sprintf(" [%s%s]", prefix, issueID)
 
-	fBody, err := os.Create(prBodyFile)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer fBody.Close()
-
-	fBody.WriteString("Body")
-
-	// Open the editor and let the user type in the title and body
-	openEditor(prTitleFile)
-	openEditor(prBodyFile)
-
-	title, err := ioutil.ReadFile(prTitleFile)
-	check(err)
-	body, err := ioutil.ReadFile(prBodyFile)
-	check(err)
-
-	trimmedTitle := strings.Trim(string(title), " \n")
-	trimmedBody := strings.Trim(string(body), " \n")
-
-	return trimmedTitle, trimmedBody
-}
-
-func openEditor(filename string) {
-	cmd := exec.Command("vim", filename)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Start()
-	check(err)
-	err = cmd.Wait()
-	check(err)
+	return msg, nil
 }
 
 /**
- * extractIssueNumber extracts current issue's number
- * using regex with given pattern. It returns the first matched
- * string if matched, otherwise empty string.
+* getBody asks the user to type in the body of the PR.
+ */
+func getBody() (string, error) {
+	curDir, _ := os.Getwd()
+	if !isGitRepo(curDir) {
+		return "", errors.New("Not a git repository")
+	}
+
+	msgFilename := fmt.Sprintf("%s/.git/PR_BODY_MESSAGE", curDir)
+	msg, err := GetUserInputFromEditor(msgFilename)
+	if err != nil {
+		return "", err
+	}
+
+	return msg, nil
+}
+
+/**
+ * buildRequest creates a request object with
+ * url, request body, and headers
+ */
+func buildRequest(req *request) (*http.Request, error) {
+
+	url := req.GetURL()
+	fmt.Printf("url = %+v\n", url)
+	body, err := req.GetBody()
+	if err != nil {
+		return nil, err
+	}
+
+	httpreq, err := http.NewRequest(
+		"POST", url, strings.NewReader(body),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	token, _ := gitutil.ConfigString("story.oauthtoken")
+	if token == "" {
+		return nil, fmt.Errorf(
+			"OAuth Token is required. Run '%s' to configure",
+			"git config story.oauthtoken <oauth_token>",
+		)
+
+	}
+
+	httpreq.Header.Set("Authorization", fmt.Sprintf("token %s", token))
+	httpreq.Header.Set("Accept", "application/vnd.github.polaris-preview+json")
+	httpreq.Header.Set("Content-Type", "application/json")
+
+	return httpreq, nil
+}
+
+/**
+* extractIssueNumber extracts current issue's number
+* using regex with given pattern. It returns the first matched
+* string if matched, otherwise empty string.
  */
 func extractIssueNumber(name string) (string, error) {
 
 	pattern, _ := gitutil.ConfigString("story.issueBranchPattern")
 	if pattern == "" {
 		return "", fmt.Errorf(
-			"Issue pattern required. Run '%s' to configure.",
+			"Issue pattern required. Run '%s' to configure",
 			"git config story.issueBranchPattern <issue_branch_pattern>",
 		)
 	}
@@ -234,4 +266,15 @@ func extractIssueNumber(name string) (string, error) {
 	}
 
 	return matched[1], nil
+}
+
+func extractPRURL(respBody []byte) (string, error) {
+	var f interface{}
+	err := json.Unmarshal(respBody, &f)
+	if err != nil {
+		return "", err
+	}
+	m := f.(map[string]interface{})
+	url := m["html_url"].(string)
+	return url, nil
 }
